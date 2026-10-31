@@ -47,6 +47,24 @@
   // Action names are limited to 12 bytes.
   var ACTION = 'st';
   var RELAY_REDUNDANCY = 4; // public relays churn; redundancy keeps rooms forming
+  // Left alone, trystero takes the first RELAY_REDUNDANCY relays of a shuffle seeded by the app id, so every
+  // player lands on the same four volunteer relays, and when those are down nobody can find the room. A wider,
+  // explicit list means a few dead relays cannot keep two players apart. index.html may replace it with
+  // window.PESKY_RELAY_URLS; an empty list there falls back to trystero's own choice.
+  var RELAY_URLS = [
+    'wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.mom', 'wss://offchain.pub',
+    'wss://relay.primal.net', 'wss://relay.snort.social', 'wss://nostr.data.haus', 'wss://strfry.openhoofd.nl',
+    'wss://purplerelay.com', 'wss://yabu.me/v2', 'wss://relay.mostr.pub', 'wss://nostr-pub.wellorder.net'
+  ];
+  function relayConfig() {
+    var urls = RELAY_URLS;
+    try {
+      var fromPage = (typeof window !== 'undefined') ? window.PESKY_RELAY_URLS : null;
+      if (fromPage && fromPage.length) urls = fromPage;
+      else if (fromPage && fromPage.length === 0) return { redundancy: RELAY_REDUNDANCY };
+    } catch (e) { }
+    return { urls: urls, redundancy: RELAY_REDUNDANCY };
+  }
   // ICE is STUN only, by design: the game is peer to peer and never relays
   // through a server. STUN tells each browser its own outside address so the
   // two can punch through their routers; several servers raise the odds of a
@@ -925,7 +943,7 @@
     var joined;
     try {
       joined = trystero.joinRoom(
-        { appId: APP_ID, relayConfig: { redundancy: RELAY_REDUNDANCY }, rtcConfig: { iceServers: iceServers() }, rtcPolyfill: WatchedPeerConnection },
+        { appId: APP_ID, relayConfig: relayConfig(), rtcConfig: { iceServers: iceServers() }, rtcPolyfill: WatchedPeerConnection },
         ROOM_PREFIX + currentRoomCode,
         {
           onJoinError: function (details) {
