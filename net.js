@@ -267,6 +267,14 @@
     try { Object.keys(iceDiag).forEach(function (id) { var d = iceDiag[id]; if (meaningful(d)) diag += id + ': ' + diagnose(id) + '\n'; }); } catch (e) { }
     return head + (diag ? '--- connections\n' + diag : '') + '--- log\n' + netLog.join('\n');
   }
+  // What a player reads. The full diagnosis stays in the network log (COPY NETWORK LOG), which is what to send when asking for help.
+  function friendlyJoinError(technical) {
+    var t = String(technical || '');
+    if (/symmetric NAT|no pair connected|TURN|reflexive|STUN/i.test(t)) {
+      return 'Could not connect to that room. This network does not allow direct play between players: phone data, hotspots and school or office Wi-Fi often block it. Try the same home Wi-Fi as the host, or have the host start the room from another network.';
+    }
+    return 'Could not join that room. Check the code, make sure the host still has the game open, then try again.';
+  }
   var logButton = null;
   function showLogButton() {
     try {
@@ -587,7 +595,7 @@
       if (Object.keys(peerLastSeen).length > 0) return;
       // No public signaling relay, but our own relay is up: the room still forms through it.
       if (relayOpen) { log('no signaling relay after 12s; carrying on through the relay'); return; }
-      emit('OnNetError', 'no signaling relay connected after 12s — network or relay outage');
+      emit('OnNetError', 'Could not reach the matchmaking servers. Check your connection and try again.');
     }, 12000);
   }
 
@@ -957,7 +965,7 @@
             showLogButton();
             // With the relay up the room still works through it: a WebRTC join error is then a note, not an error.
             if (relayOpen) log('join error ignored, the relay is up:', msg);
-            else emit('OnNetError', msg);
+            else { remember('error', [msg]); emit('OnNetError', friendlyJoinError(msg)); }
           },
           // the library allows 10 s for its hello after a connection opens; a shared radio needs longer
           handshakeTimeoutMs: 30000
